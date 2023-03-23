@@ -21,6 +21,9 @@ defmodule Lifebelt.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:oban, "~> 2.14.2"},
+      {:telemetry, "~> 0.4 or ~> 1.0"},
+      {:ecto_sql, "~> 3.6"}
     ]
   end
 end
