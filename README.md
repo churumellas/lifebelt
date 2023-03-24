@@ -1,6 +1,13 @@
 # Lifebelt
 
-**TODO: Add description**
+This plugin use useful when you have constants Oban jobs stucked
+in state of `executing` even it is not running. The plugin `Oban.Plugins.Lifeline`
+is nice when you have fast and atomic jobs that can be stucked by adverse factors.
+
+In case that you has long running which is not atomic jobs `Oban.Plugins.Lifeline` maybe can not be a good choice because it will move state for `available` even that job is actually running.
+
+If your jobs can be stucked and the "restart" must be do once that the job is not
+running, `Lifebelt` can help you.
 
 ## Installation
 
