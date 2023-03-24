@@ -4,6 +4,7 @@ defmodule Lifebelt do
   @behaviour Oban.Plugin
 
   import Ecto.Query, only: [select: 3, where: 3]
+  import Access, only: [all: 0]
   alias Oban.{Job, Peer, Plugin, Repo, Validation}
 
   @type option ::
@@ -77,7 +78,6 @@ defmodule Lifebelt do
     {:noreply, schedule_rescue(state)}
   end
 
-
   # Scheduling
 
   defp schedule_rescue(state) do
@@ -85,13 +85,21 @@ defmodule Lifebelt do
 
     %{state | timer: timer}
   end
+
   # Rescuing
 
   defp check_leadership_and_rescue_jobs(state) do
     if Peer.leader?(state.conf) do
       Repo.transaction(state.conf, fn ->
         time = DateTime.add(DateTime.utc_now(), -state.rescue_after, :millisecond)
-        base = where(Job, [j], j.state == "executing" and j.attempted_at < ^time)
+        running_ids = get_running_ids(state)
+
+        base =
+          where(
+            Job,
+            [j],
+            j.state == "executing" and j.attempted_at < ^time and j.id not in ^running_ids
+          )
 
         {rescued_count, rescued} = transition_available(base, state)
         {discard_count, discard} = transition_discarded(base, state)
@@ -106,6 +114,15 @@ defmodule Lifebelt do
     else
       {:ok, %{}}
     end
+  end
+
+  defp get_running_ids(%State{} = state) do
+    state.conf
+    |> Map.get(:queues)
+    |> Keyword.keys()
+    |> Enum.map(&Oban.check_queue(state.conf.name, queue: &1))
+    |> get_in([all(), :running])
+    |> List.flatten()
   end
 
   defp transition_available(base, state) do

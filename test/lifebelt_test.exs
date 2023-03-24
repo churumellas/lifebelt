@@ -73,8 +73,45 @@ defmodule LifebeltTest do
 
       stop_supervised(name)
     end
+
+    test "rescue only jobs that are running" do
+      name =
+        start_supervised_oban!(
+          queues: [alpha: 1],
+          stage_interval: 5,
+          plugins: [{Lifebelt, rescue_after: 5_000}]
+        )
+
+      job_a = insert!([ref: 1, sleep: 500], queue: :alpha)
+      job_a_id = job_a.id
+      assert_receive {:started, 1}
+      shift_attempted_at(job_a)
+
+      job_b =
+        insert!([ref: 2, sleep: 500],
+          queue: :alpha,
+          state: "executing",
+          attempted_at: seconds_ago(7)
+        )
+
+      send_rescue(name)
+      assert_receive {:event, :start, _measure, %{plugin: Lifebelt}}
+      assert_receive {:event, :stop, _measure, %{plugin: Lifebelt} = meta}
+
+      alpha_state = Oban.check_queue(name, queue: :alpha)
+      assert %{queue: "alpha", running: [^job_a_id]} = alpha_state
+
+      assert %{state: "executing"} = Repo.reload(job_a)
+      assert %{state: "available"} = Repo.reload(job_b)
+      stop_supervised(name)
+    end
   end
 
+  defp shift_attempted_at(job) do
+    import Ecto.Query
+    from(j in Oban.Job, where: j.id == ^job.id, update: [set: [attempted_at: ^seconds_ago(7)]])
+    |> Repo.update_all([])
+  end
   defp send_rescue(name) do
     name
     |> Oban.Registry.whereis({:plugin, Lifebelt})
