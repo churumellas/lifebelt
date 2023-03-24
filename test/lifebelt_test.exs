@@ -1,9 +1,11 @@
 defmodule LifebeltTest do
+  @event_tail [:start, :stop, :exception]
   use ExUnit.Case, async: true
 
   alias Ecto.Adapters.SQL.Sandbox
-  # alias Lifebelt.TelemetryHandler
   alias Lifebelt.Test.Repo
+  alias Lifebelt.Integration.Worker
+  alias Oban.Job
 
   setup context do
     pid = Sandbox.start_owner!(Repo, shared: not context[:async])
@@ -28,7 +30,10 @@ defmodule LifebeltTest do
 
   describe "integration" do
     setup do
-      # TelemetryHandler.attach_events()
+      name = "handler-#{System.unique_integer([:positive])}"
+      on_exit(fn -> :telemetry.detach(name) end)
+      events = Enum.reduce(@event_tail, [], fn tail, acc -> [[:oban, :plugin, tail] | acc] end)
+      :telemetry.attach_many(name, events, &handle/4, self())
     end
 
     test "rescuing executing jobs older than the rescue window" do
@@ -115,7 +120,7 @@ defmodule LifebeltTest do
 
   defp attach_auto_allow(_repo, _name), do: :ok
 
-  defp insert!(args, opts \\ []) do
+  defp insert!(args, opts) do
     args
     |> build(opts)
     |> Repo.insert!()
@@ -127,7 +132,7 @@ defmodule LifebeltTest do
     Oban.insert!(oban, changeset)
   end
 
-  defp build(args, opts \\ []) do
+  defp build(args, opts) do
     if opts[:worker] do
       Job.new(args, opts)
     else
@@ -135,7 +140,11 @@ defmodule LifebeltTest do
     end
   end
 
-  def seconds_ago(seconds) do
+  defp seconds_ago(seconds) do
     DateTime.add(DateTime.utc_now(), -seconds)
+  end
+
+  defp handle([:oban, :plugin, event], measure, meta, pid) do
+    send(pid, {:event, event, measure, meta})
   end
 end

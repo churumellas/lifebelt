@@ -33,7 +33,8 @@ defmodule Lifebelt.MixProject do
       {:oban, "~> 2.14.2"},
       {:telemetry, "~> 0.4 or ~> 1.0"},
       {:ecto_sql, "~> 3.6"},
-      {:postgrex, ">= 0.0.0"}
+      {:postgrex, ">= 0.0.0"},
+      {:tz, "~> 0.24", only: [:test, :dev]},
     ]
   end
 
