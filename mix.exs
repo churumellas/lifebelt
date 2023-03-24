@@ -7,7 +7,13 @@ defmodule Lifebelt.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      elixirc_paths: elixirc_paths(Mix.env()),
+      aliases: aliases(),
+      preferred_cli_env: [
+        "test.reset": :test,
+        "test.setup": :test
+      ]
     ]
   end
 
@@ -18,12 +24,23 @@ defmodule Lifebelt.MixProject do
     ]
   end
 
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_env), do: ["lib"]
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:oban, "~> 2.14.2"},
       {:telemetry, "~> 0.4 or ~> 1.0"},
-      {:ecto_sql, "~> 3.6"}
+      {:ecto_sql, "~> 3.6"},
+      {:postgrex, ">= 0.0.0"}
+    ]
+  end
+
+  defp aliases() do
+    [
+      "test.reset": ["ecto.drop --quiet", "test.setup"],
+      "test.setup": ["ecto.create --quiet", "ecto.migrate --quiet"]
     ]
   end
 end
